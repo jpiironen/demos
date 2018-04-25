@@ -3,4 +3,4 @@
 # Demos
 
 ## List of demos
-[brainhack-day](https://cdn.rawgit.com/jpiironen/demos/afbbefcd/brainhack.html)
+[brainhack-day](https://rawgit.com/jpiironen/demos/master/brainhack.html)

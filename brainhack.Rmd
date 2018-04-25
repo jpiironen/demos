@@ -5,23 +5,124 @@ output:
     df_print: paged
 ---
 
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+This notebook contains a few examples of how to fit some basic models, such as logistic and softmax regression, using ```rstanarm``` and ```rstan```.
 
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+We first load some required libraries. If you do not have these libraries installed, you can install them from CRAN using the command ```install.packages```, for example ```install.packages('rstan')```. The only exception is the package ```dimreduce``` which is not in CRAN, but you can install it using the command using the command on this page https://github.com/jpiironen/dimreduce.
 
-```{r fig.width=4, fig.height=3}
+```{r, message=FALSE}
+library(rstan)
+library(rstanarm)
 library(ggplot2)
-r <- rnorm(100)
-qplot(r)
+library(dimreduce)
+options(mc.cores=parallel::detectCores())
 ```
+
+
+# Logistic regression
+
+Let's load a binary classification dataset that has 410 features and 86 observations
+```{r}
+load(file='data/schizophrenia.RData')
+n <- nrow(schizophrenia)
+d <- ncol(schizophrenia)-1
+x <- schizophrenia[,2:(d+1)]
+y <- schizophrenia[,1]
+```
+
+
+In the spirit of a prediction contest, we split the dataset into training and test sets.
+```{r}
+set.seed(323413)
+ntest <- 26
+itest <- sample(1:n, ntest)
+itrain <- setdiff(1:n, itest)
+xtest <- x[itest,]
+ytest <- y[itest]
+x <- x[itrain,]
+y <- y[itrain]
+n <- length(y)
+```
+
+
+For illustration, visualize the dataset using the first two supervised principal components
+```{r fig.width=4, fig.height=3, message=FALSE, warning=FALSE, results='hide'}
+dr <- spca(x,y, nctot=20, alpha = 0.05)
+# dr <- ispca(x,y, nctot=20, alpha=0.1)
+z <- dr$z
+ggplot() + geom_point(aes(x=z[,1],y=z[,2]), color=y+2)
+```
+
+The classes are overlapping but especially the first component is predictive about the class label.
+
+
+The logistic regression model could be fit either using the original features ```x``` or the transformed features ```z```. For high-dimensional problems (where the number of features is several hundreds or more), model fitting using the original features often becomes computationally slow. It is therefore typically a good strategy to start simple and try fitting the model using the reduced set of features as we shall do here. The following command fits Bayesian logistic regression model using the regularized horseshoe prior (Piironen and Vehtari, 2017) on the regression coefficients.
+```{r, message=F}
+fit <- stan_glm(y~., family='binomial', data=data.frame(z,y), 
+                prior = hs(global_scale = 1/(ncol(z)-1)/sqrt(n)), iter=500)
+```
+Compute the predictions on the test set and check the classification accuracy
+```{r}
+ztest <- predict(dr, xtest) # the transformed features corresponding to the test x
+pred <- colMeans(posterior_linpred(fit, newdata = data.frame(ztest), transform = T))
+mean(round(pred)==ytest)
+```
+
+For illustration, let's fit the model using the original features, which takes a bit longer due to the high-dimensional feature space
+```{r, warning=F, message=F}
+fit2 <- stan_glm(y~., family='binomial', data=data.frame(x,y), prior=hs(global_scale = 1/(d-1)/sqrt(n), slab_df = 7), iter=500)
+```
+
+Predictions on the test data
+```{r}
+pred <- colMeans(posterior_linpred(fit2, newdata = data.frame(xtest), transform = T))
+mean(round(pred)==ytest)
+```
+In this case the accuracy on the test data seems to be exactly the same for the two models. (Notice also that even a seemingly large difference might not be statistically different considering that the test set has only 26 instances, so a single misclassification would decrease the accuracy by 1/26 = 0.038.)
+
+
+
+
+
+
+## Multiclass classification
 
 ```{r}
-#qplot(r)
+source('softmax.R')
 ```
 
 
-Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+```{r}
+set.seed(23432)
+nk <- 50
+x <- rbind( matrix(rnorm(nk*2), ncol=2) + 2,
+            matrix(rnorm(nk*2), ncol=2),
+            matrix(rnorm(nk*2), ncol=2) - 2 )
+y <- factor(c(rep(0,nk), rep(1,nk), rep(2,nk)))
+```
 
-When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
 
-The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+```{r, fig.height=3, fig.width=4}
+ggplot()+ geom_point(aes(x[,1],x[,2]), color=as.numeric(y))
+```
+
+
+(First execution takes time since the Stan code needs to be compiled.)
+```{r, message=F, warning=F}
+fit <- softmax_rhs(x,y,iter=500, slab_df = 7, slab_scale = 1)
+```
+
+
+```{r}
+pred <- softmax_pred(fit, x)
+```
+
+
+```{r}
+ggplot()+ geom_point(aes(x[,1],x[,2]), color=as.numeric(y))
+```
+
+
+
+## References 
+
+Piironen, Juho and Vehtari, Aki (2017c). Sparsity information and regularization in the horseshoe and other shrinkage priors. _Electronic Journal of Statistics_, 11(2): 5018--5051. [Online](https://projecteuclid.org/euclid.ejs/1513306866#info)

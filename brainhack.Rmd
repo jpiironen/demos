@@ -1,15 +1,24 @@
 ---
 title: "Examples for Brainhack day"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
 ---
 
 This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
 
 Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
 
-```{r}
-plot(cars)
+```{r fig.width=4, fig.height=3}
+library(ggplot2)
+r <- rnorm(100)
+qplot(r)
 ```
+
+```{r}
+#qplot(r)
+```
+
 
 Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
 

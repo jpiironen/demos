@@ -1,0 +1,78 @@
+---
+title: "Softmax regression example"
+output: html_notebook
+---
+NOTE: This notebook is very incomplete.
+
+## Multiclass classification
+
+Load a 4-class classification dataset. 
+```{r, message=F}
+load('data/glioma4c.RData', verbose = T)
+n <- length(y)
+```
+
+The data has 4434 features but only 50 observations. Again we split the data into training and test sets. It should be emphasized that with this few data points a clearly better approach would be to use cross-validation, but here we stick to this simple approach to keep the demonstration simple.
+```{r}
+set.seed(323413)
+ntest <- 10
+itest <- sample(1:n, ntest)
+itrain <- setdiff(1:n, itest)
+xtest <- x[itest,]
+ytest <- y[itest]
+x <- x[itrain,]
+y <- y[itrain]
+n <- length(y)
+```
+
+
+
+Visualize the data, this time using the iterative version of the SPCA.
+```{r, message=F}
+dr <- ispca(x,y, nctot=10)
+# dr <- spca(x,y, nctot=10)
+```
+
+
+```{r}
+z <- dr$z
+ggplot()+ geom_point(aes(z[,1],z[,2]), color=as.numeric(y))
+```
+
+
+
+```{r}
+source('softmax.R')
+```
+
+
+```{r}
+set.seed(23432)
+nk <- 50
+x <- rbind( matrix(rnorm(nk*2), ncol=2) + 2,
+            matrix(rnorm(nk*2), ncol=2),
+            matrix(rnorm(nk*2), ncol=2) - 2 )
+y <- factor(c(rep(0,nk), rep(1,nk), rep(2,nk)))
+```
+
+
+```{r, fig.height=3, fig.width=4}
+ggplot()+ geom_point(aes(x[,1],x[,2]), color=as.numeric(y))
+```
+
+
+(First execution takes time since the Stan code needs to be compiled.)
+```{r, message=F, warning=F}
+fit <- softmax_rhs(x,y,iter=500, slab_df = 7, slab_scale = 1)
+```
+
+
+```{r}
+pred <- softmax_pred(fit, x)
+```
+
+
+```{r}
+ggplot()+ geom_point(aes(x[,1],x[,2]), color=as.numeric(y))
+```
+

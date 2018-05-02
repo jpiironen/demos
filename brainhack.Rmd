@@ -5,7 +5,7 @@ output:
     df_print: paged
 ---
 
-This notebook contains a few examples of how to fit some basic models, such as logistic and softmax regression, using ```rstanarm``` and ```rstan```.
+This notebook contains a few examples of how to fit some basic models, such as linear and logistic regression, using ```rstanarm```.
 
 We first load some required libraries. If you do not have these libraries installed, you can install them from CRAN using the command ```install.packages```, for example ```install.packages('rstan')```. The only exception is the package ```dimreduce``` which is not in CRAN, but you can install it using the command on this page https://github.com/jpiironen/dimreduce.
 
@@ -18,9 +18,47 @@ options(mc.cores=parallel::detectCores()) # this command will automatically util
 ```
 
 
+
+# Linear regression
+
+Let's first consider a very basic linear regression example with only one predictor variable.
+We first create a simple toy dataset
+```{r}
+set.seed(1233)
+n <- 20
+x <- rnorm(n)
+f <- x - 1 
+y <- f + rnorm(n)
+```
+
+Let's then fit the model
+```{r, message=F}
+fit <- stan_glm(y~x, data=data.frame(x,y))
+```
+Visualize the marginal posterior distributions of the regression coefficients
+```{r, fig.width=4, fig.height=3}
+plot(fit)
+```
+
+These seem to be in accordance with the true values (regression coefficient 1 and intercept -1).
+The posterior draws can be fetched from the fit object for instance using the ```as.data.frame```-command.
+The following visualizes the posterior distribution for the regression coefficient
+```{r, message=F, fig.width=4, fig.height=3}
+post <- as.data.frame(fit)
+beta <- post$x
+qplot(beta)
+```
+
+We can also easily compute the probability that the regression coefficient is positive
+```{r}
+print(mean(beta>0))
+```
+So we are fairly certain that the coefficient is different from zero.
+
+
 # Logistic regression
 
-Let's load a binary classification dataset that has 410 features and 86 observations
+Let's then consider a bit more advanced problem. We load a binary classification dataset that has 410 features and 86 observations
 ```{r}
 load(file='data/schizophrenia.RData')
 n <- nrow(schizophrenia)
